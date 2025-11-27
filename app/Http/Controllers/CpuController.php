@@ -12,6 +12,7 @@ class CpuController extends Controller
      */
     public function index()
     {
+        
     }
 
     /**
