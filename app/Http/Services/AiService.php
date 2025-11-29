@@ -89,7 +89,6 @@ class AiService
                 ["type" => "text", "text" => $promptText]
             ]
         ];
-
         return self::responseChat($systemMessage,$userMessage);
     }
     public static function responseChat($systemMessage = null, $userMessage = null){
