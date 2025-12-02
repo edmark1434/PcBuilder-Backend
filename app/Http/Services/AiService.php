@@ -65,6 +65,7 @@ class AiService
                         '    "psu": {"wattage_min": 0, "efficiency_rating_min": "", "pcie_connectors_required": {"pin_6": 0, "pin_8": 0, "pin_12": 0, "pin_12vhpwr": 0}},' . "\n" .
                         '    "pc_case": {"motherboard_form_factor": "", "gpu_max_length_mm": 0, "dimensions": ""}' . "\n" .
                         "  },\n" .
+                        "I need to have each part has a percent in the budget distribution. I want a balanced and fair distribution based on category. Return integer".
                         '  "budget_distribution": {' . "\n" .
                         '    "cpu_percent": 0,' . "\n" .
                         '    "gpu_percent": 0,' . "\n" .

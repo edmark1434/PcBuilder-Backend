@@ -36,7 +36,9 @@ class MainController extends Controller
             $text = $text ?? "Build a pc for programming";
             $pcDetails = $this->buildSpec($text);
             $minimumReq = $pcDetails["minimum_required_specs"];
+            $distribution = $pcDetails["budget_distribution"];
             session(['minimum' => $minimumReq]);
+            session(['budget_distribution' => $distribution]);
         } else {
             $minimumReq = session('minimum');
         }
@@ -74,96 +76,93 @@ class MainController extends Controller
         $text = $request->input('build', 'Build a pc for programming');
         $minBudget = (float) $request->input('min', 1000);
         $maxBudget = (float) $request->input('max', 10000);
+        $targetBuildCount = 20;
 
         $allParts = $this->getCompatibleParts($text);
         $convert = fn($p) => $this->convertPrice($p);
 
-        // 1️⃣ Compute MINIMUM POSSIBLE BUILD
-        $currentBuild = [];
-        $currentTotal = 0;
+        // Create balanced allocation
+        $distribution = $this->getBudgetDistribution(($minBudget + $maxBudget) / 2);
 
-        foreach ($allParts as $category => $parts) {
+        $builds = [];
 
-            if ($parts->isEmpty()) {
-                return response()->json([
-                    'error' => "No compatible $category parts found"
-                ], 400);
+        for ($i = 0; $i < 3000; $i++) {
+
+            $build = [];
+            $total = 0;
+
+            foreach ($allParts as $category => $parts) {
+
+                if (!isset($distribution[$category])) continue;
+
+                $targetPrice = $distribution[$category];
+
+                $selectedPart = $this->pickPartBasedOnBudget($parts, $targetPrice, $convert);
+
+                $build[$category] = $selectedPart;
+                $total += $convert($selectedPart->price);
             }
 
-            // cheapest part
-            $minPrice = $parts->min(fn($p) => $convert($p->price));
-            $minParts = $parts->filter(fn($p) => $convert($p->price) == $minPrice);
-            $selected = $minParts->random();
+            if ($total >= $minBudget && $total <= $maxBudget) {
+                $builds[] = [
+                    'parts' => collect($build)->map(fn($p) => [
+                        'id' => $p->id,
+                        'name' => $p->name,
+                        'price' => $convert($p->price)
+                    ]),
+                    'total_price' => round($total, 2)
+                ];
+            }
 
-            $currentBuild[$category] = $selected;
-            $currentTotal += $minPrice;
+            if (count($builds) >= $targetBuildCount) break;
         }
 
-        // If minimum build > max budget → impossible
-        if ($currentTotal > $maxBudget) {
+        if (empty($builds)) {
             return response()->json([
-                'error' => "Minimum build ($currentTotal) exceeds your max budget",
+                'error' => "No balanced builds found within your budget.",
+                'minimum_possible_build' => $this->minimumPrice($text)
             ], 400);
         }
 
-        // 2️⃣ If minimum build fits budget → return it
-        if ($currentTotal >= $minBudget && $currentTotal <= $maxBudget) {
-            return response()->json([
-                'selected_parts' => collect($currentBuild)->map(fn($p) => [
-                    'id' => $p->id,
-                    'name' => $p->name,
-                    'price' => $convert($p->price)
-                ]),
-                'total_price' => round($currentTotal, 2),
-                'type' => 'minimum_fit'
-            ]);
-        }
-
-        // 3️⃣ Upgrade parts until we reach the budget window
-        foreach ($allParts as $category => $parts) {
-
-            $sorted = $parts->sortBy(fn($p) => $convert($p->price));
-
-            foreach ($sorted as $part) {
-
-                $newPrice = $convert($part->price);
-                $oldPrice = $convert($currentBuild[$category]->price);
-
-                // Skip if not an upgrade
-                if ($newPrice <= $oldPrice) continue;
-
-                $newTotal = $currentTotal - $oldPrice + $newPrice;
-
-                // Stop condition: fits budget window
-                if ($newTotal >= $minBudget && $newTotal <= $maxBudget) {
-                    $currentBuild[$category] = $part;
-                    $currentTotal = $newTotal;
-
-                    return response()->json([
-                        'selected_parts' => collect($currentBuild)->map(fn($p) => [
-                            'id' => $p->id,
-                            'name' => $p->name,
-                            'price' => $convert($p->price)
-                        ]),
-                        'total_price' => round($currentTotal, 2),
-                        'type' => "upgraded_to_fit"
-                    ]);
-                }
-
-                // Accept upgrade if below budget and continue searching
-                if ($newTotal < $minBudget) {
-                    $currentBuild[$category] = $part;
-                    $currentTotal = $newTotal;
-                }
-            }
-        }
+        usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
 
         return response()->json([
-            'error' => "Could not create a build within your budget range.",
-            'minimum_possible_build' => $currentTotal
-        ], 400);
+            'total_builds' => count($builds),
+            'builds' => array_slice($builds, 0, $targetBuildCount),
+            'sorted_by' => 'balanced_cheapest_to_expensive'
+        ]);
     }
 
+    protected function pickPartBasedOnBudget($parts, $targetBudget, $convert)
+    {
+        $filtered = $parts->filter(function ($p) use ($targetBudget, $convert) {
+            $price = $convert($p->price);
+            return $price <= $targetBudget * 1.3 && $price >= $targetBudget * 0.5;
+        });
+
+        // Fallback if none in target range
+        if ($filtered->isEmpty()) {
+            $filtered = $parts;
+        }
+
+        return $filtered->random();
+    }
+
+    protected function getBudgetDistribution($budget)
+    {
+
+        $budget_distribution = session('budget_distribution',[]);
+        return [
+            'cpu'         => $budget * ($budget_distribution['cpu_percent'] / 100),
+            'gpu'         => $budget * ($budget_distribution['gpu_percent'] / 100),
+            'ram'         => $budget * ($budget_distribution['ram_percent']/100),
+            'storage'     => $budget * ($budget_distribution['storage_percent'] /100),
+            'motherboard' => $budget * ($budget_distribution['motherboard_percent']/ 100),
+            'psu'         => $budget * ($budget_distribution['psu_percent'] / 100),
+            'pc_case'     => $budget * ($budget_distribution['pc_case_percent'] /100),
+            'cpu_cooler'  => $budget * ($budget_distribution['cpu_cooler_percent'] / 100)
+        ];
+    }
     public function AiChatbot(Request $request)
     {
         $build = $request->input('build');
