@@ -2,17 +2,24 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Cpu;
 use Illuminate\Http\Request;
-
-class CpuController extends Controller
+use App\Models\Category;
+class PcController extends Controller
 {
     /**
      * Display a listing of the resource.
      */
-    public function index()
+    public function categoryList()
     {
-        
+        $categories = Category::with('categprice')->get()->map(function ($categ) {
+            return [
+                $categ->name => $categ->categprice->min_price
+            ];
+        });
+        if(!$categories){
+            return response()->json(['message' => 'No categories available'],200);
+        }
+        return response()->json($categories,200);
     }
 
     /**
@@ -34,7 +41,7 @@ class CpuController extends Controller
     /**
      * Display the specified resource.
      */
-    public function show(Cpu $cpu)
+    public function show(string $id)
     {
         //
     }
@@ -42,7 +49,7 @@ class CpuController extends Controller
     /**
      * Show the form for editing the specified resource.
      */
-    public function edit(Cpu $cpu)
+    public function edit(string $id)
     {
         //
     }
@@ -50,7 +57,7 @@ class CpuController extends Controller
     /**
      * Update the specified resource in storage.
      */
-    public function update(Request $request, Cpu $cpu)
+    public function update(Request $request, string $id)
     {
         //
     }
@@ -58,7 +65,7 @@ class CpuController extends Controller
     /**
      * Remove the specified resource from storage.
      */
-    public function destroy(Cpu $cpu)
+    public function destroy(string $id)
     {
         //
     }
