@@ -1,7 +1,7 @@
 <?php
 
 namespace App\Http\Controllers;
-use App\Http\Services\AiService;
+
 use App\Models\Cpu;
 use App\Models\CpuCooler;
 use App\Models\Motherboard;
@@ -9,6 +9,7 @@ use App\Models\PcCase;
 use App\Models\Psu;
 use App\Models\Ram;
 use App\Models\Gpu;
+use App\Http\Services\AiService;
 use App\Models\Storage;
 use Illuminate\Http\Request;
 
@@ -27,112 +28,120 @@ class MainController extends Controller
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
                 'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 350]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'School' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.0],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 8, 'min_speed' => 4800],
                 'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 4],
                 'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500, 'nvme_required' => false],
+                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
                 'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 270]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Office Work' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.0],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 8, 'min_speed' => 4800],
                 'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 2],
                 'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500, 'nvme_required' => false],
+                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
                 'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 270]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Video Editing' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
                 'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 350]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Programming' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.2],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 4800],
                 'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 4],
                 'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500, 'nvme_required' => false],
+                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
                 'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 270]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             '3D Modeling' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 12, 'boost_clock_min_ghz' => 3.8],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 64, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 12],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 170],
                 'psu' => ['wattage_min' => 850],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 350]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
-                        'Photo Editing' => [
+
+            'Photo Editing' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 6, 'boost_clock_min_ghz' => 3.5],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 280, 'recommended_vram_gb' => 6],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 150],
                 'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 300]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Graphic Design' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 6, 'boost_clock_min_ghz' => 3.5],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 280, 'recommended_vram_gb' => 6],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 150],
                 'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 300]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Streaming' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
                 'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 350]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
+
             'Content Creation' => [
                 'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
                 'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
                 'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
                 'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
                 'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000, 'nvme_required' => true],
+                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
                 'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
                 'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX', 'gpu_max_length_mm' => 350]
+                'pc_case' => ['motherboard_form_factor' => 'ATX']
             ],
         ];
-
 
         return $categorySpecs[$category] ?? null;
     }
@@ -147,11 +156,12 @@ class MainController extends Controller
         $minimumReq = $this->getCategorySpecs($category);
         if (!$minimumReq) return [];
 
+        $gpuRequired = $minimumReq['gpu_required'];
+
         // CPU
         $allCpu = Cpu::where('socket', $minimumReq['cpu']['socket'])
             ->where('core_count', '>=', $minimumReq['cpu']['core_count_min'])
             ->where('boost_clock', '>=', $minimumReq['cpu']['boost_clock_min_ghz'])
-            ->where('integrated_graphics', '!=', 'None')
             ->get();
 
         // Motherboard
@@ -171,9 +181,9 @@ class MainController extends Controller
             ->whereRaw("CAST(SPLIT_PART(speed, '-', 2) AS INTEGER) >= ?", [$minimumReq['ram']['min_speed']])
             ->get();
 
-        // GPU (conditionally)
+        // GPU (only if required)
         $allGpu = collect();
-        if (!empty($minimumReq['gpu_required']) && $minimumReq['gpu_required'] === true) {
+        if ($gpuRequired) {
             $allGpu = Gpu::where('memory', '>=', $minimumReq['gpu']['recommended_vram_gb'])
                 ->where('length', '<=', $minimumReq['gpu']['max_length_mm'])
                 ->get();
@@ -187,97 +197,112 @@ class MainController extends Controller
         // Storage
         $allStorage = Storage::whereRaw("CAST(capacity_gb AS INTEGER) >= ?", [$minimumReq['storage']['capacity_min_gb']])
             ->where('is_nvme', $minimumReq['storage']['is_nvme'])
+            ->where('type', $minimumReq['storage']['type'])
             ->get();
 
         // PSU
         $allPsu = Psu::where('wattage', '>=', $minimumReq['psu']['wattage_min'])->get();
 
-        // PC Case
-        $allCase = PcCase::whereRaw("POSITION(? IN motherboard_form_factor) > 0", [$minimumReq['pc_case']['motherboard_form_factor']])
-            ->where('maximum_video_card_length_mm', '>=', $minimumReq['gpu']['max_length_mm'])
-            ->get();
+        // PC Case (skip GPU length if GPU is optional)
+        $pcCaseQuery = PcCase::whereRaw(
+            "POSITION(? IN LOWER(motherboard_form_factor)) > 0",
+            [strtolower($minimumReq['pc_case']['motherboard_form_factor'])]
+        );
 
-        // Return all parts
+        if ($gpuRequired) {
+            $pcCaseQuery->where('maximum_video_card_length_mm', '>=', $minimumReq['gpu']['max_length_mm']);
+        }
+
+        $allCase = $pcCaseQuery->get();
+
+        // Final parts list
         self::$allParts = [
             'cpu' => $allCpu,
             'motherboard' => $allMotherboard,
             'ram' => $allRam,
-            'gpu' => $allGpu,
             'cpu_cooler' => $allCooler,
             'storage' => $allStorage,
             'psu' => $allPsu,
             'pc_case' => $allCase,
         ];
 
+        if ($gpuRequired) {
+            self::$allParts['gpu'] = $allGpu;
+        }
+
         return self::$allParts;
     }
 
+    // -------------------------------------------------------------------------------------
+    //  BUILD GENERATION
+    // -------------------------------------------------------------------------------------
+
     public function buildWithBudgetRange(Request $request)
-{
-    $category = $request->input('category');
-    $minBudget = (float) $request->input('min', 1000);
-    $maxBudget = (float) $request->input('max', 10000);
-    $targetBuildCount = 20;
+    {
+        $category = $request->input('category');
+        $minBudget = (float) $request->input('min', 1000);
+        $maxBudget = (float) $request->input('max', 10000);
+        $targetBuildCount = 20;
 
-    $allParts = $this->getCompatibleParts($category);
-    $convert = fn($p) => $this->convertPrice($p->price);
+        $categorySpecs = $this->getCategorySpecs($category);
+        $gpuRequired = $categorySpecs['gpu_required'] ?? true;
 
-    // Calculate minimum possible build
-    $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
-        return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
-    })->sum();
+        // Get all parts
+        $allParts = $this->getCompatibleParts($category);
 
-    // Adjust budgets if below minimum build
-    if ($maxBudget < $minimumBuild) {
-        $minBudget = $maxBudget = $minimumBuild;
-    }
-
-    if ($minBudget < $minimumBuild) {
-        $minBudget = $minimumBuild;
-    }
-
-    $builds = [];
-    $minimumReq = $this->getCategorySpecs($category);
-    $gpuRequired = $minimumReq['gpu_required'] ?? false;
-
-    // If budget range is very tight (or min=max), just return minimum build
-    if (abs($maxBudget - $minBudget) <= 5) {
-        $minCombo = [];
-        foreach ($allParts as $cat => $parts) {
-            if ($parts->isEmpty()) continue;
-            if ($cat === 'gpu' && !$gpuRequired) continue;
-            $minCombo[$cat] = $parts->sortBy(fn($p) => $convert($p))->first();
+        // Remove GPU from allParts if category does not require it
+        if (!$gpuRequired) {
+            unset($allParts['gpu']);
         }
-        $total = array_reduce($minCombo, fn($sum, $p) => $sum + $convert($p), 0);
-        $builds[] = [
-            'parts' => collect($minCombo)->map(function ($p, $cat) use ($convert) {
-                return [
-                    'id' => $p->id,
-                    'partType' => ucwords(str_replace('_', ' ', $cat)),
-                    'name' => $p->name,
-                    'price' => $convert($p),
-                    'image' => $p->image ?? ''
-                ];
-            })->values(),
-            'total_price' => round($total, 2)
-        ];
-    } else {
-        // Normal tier-based randomized builds
+
+        $convert = fn($p) => $this->convertPrice($p->price);
+
+        // Minimum possible build
+        $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
+            return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
+        })->sum();
+
+        if ($maxBudget < $minimumBuild) {
+            return response()->json([
+                'error' => 'Your budget is less than the minimum build.',
+                'minimum_possible_build' => round($minimumBuild, 2)
+            ], 400);
+        }
+
+        if ($minBudget < $minimumBuild) {
+            $minBudget = $minimumBuild;
+        }
+
+        // If budget is too close: return minimum build
+        if (($maxBudget - $minimumBuild) <= 20) {
+            return response()->json([
+                'total_builds' => 1,
+                'builds' => [$this->formatMinimumBuild($allParts, $convert)],
+                'minimum_possible_build' => round($minimumBuild, 2),
+                'sorted_by' => 'minimum_build_short_range'
+            ]);
+        }
+
+        // Generate builds
+        $builds = [];
         $tiers = ['min', 'mid', 'max'];
+        $attemptLimit = 1500;
         $attempts = 0;
-        while (count($builds) < $targetBuildCount && $attempts < 5000) {
+
+        while (count($builds) < $targetBuildCount && $attempts < $attemptLimit) {
             $attempts++;
+
             $build = [];
             $total = 0;
-
             $tier = $tiers[array_rand($tiers)];
 
             foreach ($allParts as $cat => $parts) {
                 if ($parts->isEmpty()) continue;
-                if ($cat === 'gpu' && !$gpuRequired) continue;
 
                 $sorted = $parts->sortBy(fn($p) => $convert($p))->values();
                 $count = $sorted->count();
+
+                if ($count === 0) continue;
 
                 if ($tier === 'min') {
                     $index = rand(0, max(0, (int) floor($count * 0.3) - 1));
@@ -287,9 +312,9 @@ class MainController extends Controller
                     $index = rand((int) floor($count * 0.3), (int) floor($count * 0.7));
                 }
 
-                $selectedPart = $sorted[$index];
-                $build[$cat] = $selectedPart;
-                $total += $convert($selectedPart);
+                $selected = $sorted[$index];
+                $build[$cat] = $selected;
+                $total += $convert($selected);
             }
 
             if ($total >= $minBudget && $total <= $maxBudget) {
@@ -301,33 +326,82 @@ class MainController extends Controller
                             'name' => $p->name,
                             'price' => $convert($p),
                             'image' => $p->image_url ?? '',
-                            'product' => $p->product_url ?? ''
+                            'product' => $p->product_url ??
+ ''
                         ];
                     })->values(),
                     'total_price' => round($total, 2)
                 ];
             }
         }
+
+        // Fallback: minimum build
+        if (empty($builds)) {
+            return response()->json([
+                'total_builds' => 1,
+                'builds' => [$this->formatMinimumBuild($allParts, $convert)],
+                'minimum_possible_build' => round($minimumBuild, 2),
+                'sorted_by' => 'fallback_minimum'
+            ]);
+        }
+
+        // Add minimum build at first index
+        array_unshift($builds, $this->formatMinimumBuild($allParts, $convert));
+
+        // Sort ascending by total price
+        usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
+
+        // Remove duplicates
+        $builds = array_unique($builds, SORT_REGULAR);
+
+        // Limit to 20 builds
+        $builds = array_slice($builds, 0, 20);
+
+        return response()->json([
+            'total_builds' => count($builds),
+            'builds' => $builds,
+            'minimum_possible_build' => round($minimumBuild, 2),
+            'sorted_by' => 'fast_generation_with_minimum_first'
+        ]);
     }
 
-    usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
+    private function formatMinimumBuild($allParts, $convert)
+    {
+        $minCombo = [];
 
-    return response()->json([
-        'total_builds' => count($builds),
-        'builds' => $builds,
-        'minimum_possible_build' => round($minimumBuild, 2),
-        'sorted_by' => abs($maxBudget - $minBudget) <= 5 ? 'minimum_build_only' : 'randomized_tier_based'
-    ]);
-}
+        foreach ($allParts as $cat => $parts) {
+            if (!$parts->isEmpty()) {
+                $minCombo[$cat] = $parts->sortBy(fn($p) => $convert($p))->first();
+            }
+        }
 
+        $total = array_reduce($minCombo, fn($sum, $p) => $sum + $convert($p), 0);
 
+        return [
+            'parts' => collect($minCombo)->map(function ($p, $cat) use ($convert) {
+                return [
+                    'id' => $p->id,
+                    'partType' => ucwords(str_replace('_', ' ', $cat)),
+                    'name' => $p->name,
+                    'price' => $convert($p),
+                    'image' => $p->image_url ?? '',
+                    'product' => $p->product_url ?? ''
+                ];
+            })->values(),
+            'total_price' => round($total, 2)
+        ];
+    }
+
+    // AI Chatbot Proxy
     public function AiChatbot(Request $request)
     {
         $build = $request->input('build');
         $question = $request->input('question');
+
         $result = AiService::askAI($build, $question);
         $clean = preg_replace('/```(json)?|```/', '', $result);
         $response = json_decode($clean, true);
+
         return response()->json(['message' => $response]);
     }
 }
