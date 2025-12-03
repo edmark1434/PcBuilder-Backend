@@ -133,6 +133,7 @@ class MainController extends Controller
             ],
         ];
 
+
         return $categorySpecs[$category] ?? null;
     }
 
@@ -212,36 +213,57 @@ class MainController extends Controller
     }
 
     public function buildWithBudgetRange(Request $request)
-    {
-        $category = $request->input('category');
-        $minBudget = (float) $request->input('min', 1000);
-        $maxBudget = (float) $request->input('max', 10000);
-        $targetBuildCount = 20;
+{
+    $category = $request->input('category');
+    $minBudget = (float) $request->input('min', 1000);
+    $maxBudget = (float) $request->input('max', 10000);
+    $targetBuildCount = 20;
 
-        $allParts = $this->getCompatibleParts($category);
-        $convert = fn($p) => $this->convertPrice($p->price);
+    $allParts = $this->getCompatibleParts($category);
+    $convert = fn($p) => $this->convertPrice($p->price);
 
-        // Calculate minimum possible build
-        $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
-            return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
-        })->sum();
+    // Calculate minimum possible build
+    $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
+        return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
+    })->sum();
 
-        if ($maxBudget < $minimumBuild) {
-            return response()->json([
-                'error' => 'Your budget is less than the minimum possible build for this category.',
-                'minimum_possible_build' => round($minimumBuild, 2)
-            ], 400);
+    // Adjust budgets if below minimum build
+    if ($maxBudget < $minimumBuild) {
+        $minBudget = $maxBudget = $minimumBuild;
+    }
+
+    if ($minBudget < $minimumBuild) {
+        $minBudget = $minimumBuild;
+    }
+
+    $builds = [];
+    $minimumReq = $this->getCategorySpecs($category);
+    $gpuRequired = $minimumReq['gpu_required'] ?? false;
+
+    // If budget range is very tight (or min=max), just return minimum build
+    if (abs($maxBudget - $minBudget) <= 5) {
+        $minCombo = [];
+        foreach ($allParts as $cat => $parts) {
+            if ($parts->isEmpty()) continue;
+            if ($cat === 'gpu' && !$gpuRequired) continue;
+            $minCombo[$cat] = $parts->sortBy(fn($p) => $convert($p))->first();
         }
-
-        if ($minBudget < $minimumBuild) {
-            $minBudget = $minimumBuild;
-        }
-
-        $builds = [];
+        $total = array_reduce($minCombo, fn($sum, $p) => $sum + $convert($p), 0);
+        $builds[] = [
+            'parts' => collect($minCombo)->map(function ($p, $cat) use ($convert) {
+                return [
+                    'id' => $p->id,
+                    'partType' => ucwords(str_replace('_', ' ', $cat)),
+                    'name' => $p->name,
+                    'price' => $convert($p),
+                    'image' => $p->image ?? ''
+                ];
+            })->values(),
+            'total_price' => round($total, 2)
+        ];
+    } else {
+        // Normal tier-based randomized builds
         $tiers = ['min', 'mid', 'max'];
-        $minimumReq = $this->getCategorySpecs($category);
-        $gpuRequired = $minimumReq['gpu_required'] ?? false;
-
         $attempts = 0;
         while (count($builds) < $targetBuildCount && $attempts < 5000) {
             $attempts++;
@@ -252,7 +274,7 @@ class MainController extends Controller
 
             foreach ($allParts as $cat => $parts) {
                 if ($parts->isEmpty()) continue;
-                if ($cat === 'gpu' && !$gpuRequired) continue; // skip GPU if not required
+                if ($cat === 'gpu' && !$gpuRequired) continue;
 
                 $sorted = $parts->sortBy(fn($p) => $convert($p))->values();
                 $count = $sorted->count();
@@ -286,38 +308,19 @@ class MainController extends Controller
                 ];
             }
         }
-
-        if (empty($builds)) {
-            $minCombo = [];
-            foreach ($allParts as $cat => $parts) {
-                if ($parts->isEmpty()) continue;
-                if ($cat === 'gpu' && !$gpuRequired) continue;
-                $minCombo[$cat] = $parts->sortBy(fn($p) => $convert($p))->first();
-            }
-            $total = array_reduce($minCombo, fn($sum, $p) => $sum + $convert($p), 0);
-            $builds[] = [
-                'parts' => collect($minCombo)->map(function ($p, $cat) use ($convert) {
-                    return [
-                        'id' => $p->id,
-                        'partType' => ucwords(str_replace('_', ' ', $cat)),
-                        'name' => $p->name,
-                        'price' => $convert($p),
-                        'image' => $p->image ?? ''
-                    ];
-                })->values(),
-                'total_price' => round($total, 2)
-            ];
-        }
-
-        usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
-
-        return response()->json([
-            'total_builds' => count($builds),
-            'builds' => $builds,
-            'minimum_possible_build' => round($minimumBuild, 2),
-            'sorted_by' => 'randomized_tier_based'
-        ]);
     }
+
+    usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
+
+    return response()->json([
+        'total_builds' => count($builds),
+        'builds' => $builds,
+        'minimum_possible_build' => round($minimumBuild, 2),
+        'sorted_by' => abs($maxBudget - $minBudget) <= 5 ? 'minimum_build_only' : 'randomized_tier_based'
+    ]);
+}
+
+
     public function AiChatbot(Request $request)
     {
         $build = $request->input('build');
