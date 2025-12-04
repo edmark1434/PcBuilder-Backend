@@ -3,6 +3,8 @@
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\MainController;
 use App\Http\Controllers\PcController;
+use App\Http\Controllers\AuthController;
+use App\Http\Controllers\FavoriteController;
 
 Route::post('/askAI',[MainController::class,'AiChatbot']);
 Route::get('/build-spec',[MainController::class,'buildSpec']);
@@ -17,3 +19,9 @@ Route::get('/storage/{id}',[PcController::class,'getStorage']);
 Route::get('/gpu/{id}',[PcController::class,'getGpu']);
 Route::get('/motherboard/{id}',[PcController::class,'getMotherboard']);
 Route::get('/ram/{id}',[PcController::class,'getRam']);
+Route::post('/login',[AuthController::class,'login']);
+Route::post('/signup',[AuthController::class,'signup']);
+Route::get('/favorites', [FavoriteController::class, 'index']);
+Route::post('/favorites', [FavoriteController::class, 'store']);
+Route::delete('/favorites/{id}', [FavoriteController::class, 'destroy']);
+Route::delete('/favorites', [FavoriteController::class, 'clear']);
