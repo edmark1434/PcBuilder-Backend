@@ -11,10 +11,14 @@ class AiService
      */
     public static function responseChat($systemMessage = null, $userMessage = null)
     {
+        $baseUrl = env('AZURE_BASE_URL') ?? env('OPENROUTER_BASE_URL');
+        $apiKey = env('AZURE_API_KEY') ?? env('OPENROUTER_API_KEY');
+        $model  = env('AZURE_MODEL') ?? env('OPENROUTER_MODEL');
+
         $response = Http::withHeaders([
-            "Authorization" => "Bearer " . env("OPENROUTER_API_KEY"),
-        ])->post(env("OPENROUTER_BASE_URL") . "/chat/completions", [
-            "model" => env("OPENROUTER_MODEL"),
+            "Authorization" => "Bearer " . $apiKey,
+        ])->post($baseUrl, [
+            "model" => $model,
             "messages" => [$systemMessage, $userMessage]
         ]);
 

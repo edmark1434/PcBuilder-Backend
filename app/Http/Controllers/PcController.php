@@ -78,6 +78,7 @@ class PcController extends Controller
         $pc_case = PcCase::findOrFail($id);
         return response()->json($pc_case, 200);
     }
+    
     /**
      * Store a newly created resource in storage.
      */
