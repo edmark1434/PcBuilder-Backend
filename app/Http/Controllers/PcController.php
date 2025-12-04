@@ -12,6 +12,7 @@ use App\Models\Ram;
 use App\Models\Storage;
 use Illuminate\Http\Request;
 use App\Models\Category;
+use App\Http\Services\AiService;
 class PcController extends Controller
 {
     /**
@@ -73,14 +74,4 @@ class PcController extends Controller
         $gpu = Gpu::findOrFail($id);
         return response()->json($gpu, 200);
     }
-     public function getPcCase($id)
-    {
-        $pc_case = PcCase::findOrFail($id);
-        return response()->json($pc_case, 200);
-    }
-    
-    /**
-     * Store a newly created resource in storage.
-     */
-    
 }
