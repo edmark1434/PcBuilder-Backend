@@ -24,7 +24,6 @@ class AiService
 
         $data = $response->json();
 
-        // Check for errors
         if (!isset($data['choices'][0]['message']['content'])) {
             throw new \Exception('API response missing content: ' . json_encode($data));
         }
@@ -71,4 +70,6 @@ class AiService
 
         return self::responseChat($systemMessage, $userMessage);
     }
+    
+    
 }
