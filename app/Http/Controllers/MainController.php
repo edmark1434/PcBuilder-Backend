@@ -233,9 +233,6 @@ class MainController extends Controller
         return self::$allParts;
     }
 
-    // -------------------------------------------------------------------------------------
-    //  BUILD GENERATION
-    // -------------------------------------------------------------------------------------
 
     public function buildWithBudgetRange(Request $request)
     {
@@ -354,7 +351,7 @@ class MainController extends Controller
         // Remove duplicates
         $builds = array_unique($builds, SORT_REGULAR);
 
-        // Limit to 20 builds
+        // 20 builds limit
         $builds = array_slice($builds, 0, 20);
 
         return response()->json([
@@ -395,13 +392,128 @@ class MainController extends Controller
     // AI Chatbot Proxy
     public function AiChatbot(Request $request)
     {
-        $build = $request->input('build');
-        $question = $request->input('question');
+        try {
+            $build = $request->input('build');
+            $question = $request->input('question');
 
-        $result = AiService::askAI($build, $question);
-        $clean = preg_replace('/```(json)?|```/', '', $result);
-        $response = json_decode($clean, true);
+            // Validate inputs
+            if (!$build || !$question) {
+                return response()->json([
+                    'success' => false,
+                    'message' => 'Build data and question are required'
+                ], 400);
+            }
 
-        return response()->json(['message' => $response]);
+            // Call the llms
+            $result = AiService::askAI($build, $question);
+            
+            // check if the response is json
+            $jsonStart = strpos($result, '{');
+            $jsonEnd = strrpos($result, '}');
+            
+            if ($jsonStart !== false && $jsonEnd !== false && $jsonEnd > $jsonStart) {
+                // Extracting and decoding json
+                $jsonStr = substr($result, $jsonStart, $jsonEnd - $jsonStart + 1);
+                
+                $jsonStr = preg_replace('/```(json)?|```/', '', $jsonStr);
+                $jsonStr = trim($jsonStr);
+                
+                $response = json_decode($jsonStr, true);
+                
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => $response
+                    ], 200);
+                }
+            }
+            
+            // format for non json returns
+            $hasBullets = false;
+            $bulletPatterns = [
+                '/^\s*[•\-*]\s+/m',           // •, -, * bullets
+                '/^\s*\d+\.\s+/m',            // Numbered bullets
+                '/Compatibility Score:/i',    // Compatibility headers
+                '/GUIDE:/i',                  // Guide headers
+                '/Upgrade Priority:/i',       // Upgrade headers
+                '/Value Assessment:/i',       // Value headers
+                '/YES\s*\n/i',                // YES followed by newline
+                '/NO\s*\n/i',                 // NO followed by newline
+            ];
+            
+            foreach ($bulletPatterns as $pattern) {
+                if (preg_match($pattern, $result)) {
+                    $hasBullets = true;
+                    break;
+                }
+            }
+            
+            // Clean the response (remove JSON markers if any)
+            $cleanResponse = preg_replace('/```(json)?|```/', '', $result);
+            $cleanResponse = trim($cleanResponse);
+            
+            // Format the response
+            if ($hasBullets) {
+                // For bulleted responses, return as is
+                return response()->json([
+                    'success' => true,
+                    'message' => [
+                        'format' => 'bulleted',
+                        'content' => $cleanResponse,
+                        'has_bullets' => true
+                    ]
+                ], 200);
+            } else {
+                // For regular text responses, try to extract direct answer if present
+                $lines = explode("\n", $cleanResponse);
+                $directAnswer = '';
+                $detailedAnswer = '';
+                
+                // Look for direct answer patterns
+                foreach ($lines as $line) {
+                    $trimmed = trim($line);
+                    if (preg_match('/^(YES|NO)\b/i', $trimmed, $matches)) {
+                        $directAnswer = strtoupper($matches[1]);
+                        $detailedAnswer = substr($trimmed, strlen($matches[1]));
+                        $detailedAnswer = trim($detailedAnswer, ': .');
+                        break;
+                    }
+                }
+                
+                if ($directAnswer) {
+                    return response()->json([
+                        'success' => true,
+                        'message' => [
+                            'format' => 'qa',
+                            'direct_answer' => $directAnswer,
+                            'detailed_answer' => $detailedAnswer ?: $cleanResponse,
+                            'has_bullets' => false
+                        ]
+                    ], 200);
+                } else {
+                    // Return as regular text
+                    return response()->json([
+                        'success' => true,
+                        'message' => [
+                            'format' => 'text',
+                            'content' => $cleanResponse,
+                            'has_bullets' => false
+                        ]
+                    ], 200);
+                }
+            }
+            
+        } catch (\Exception $e) {
+            \Log::error('AI Chatbot Error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all()
+            ]);
+            
+            return response()->json([
+                'success' => false,
+                'message' => 'An error occurred while processing your request. Please try again.',
+                'error' => env('APP_DEBUG') ? $e->getMessage() : null
+            ], 500);
+        }
     }
 }
