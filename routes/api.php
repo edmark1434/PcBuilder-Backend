@@ -17,6 +17,8 @@ Route::get('/cpu-cooler/{id}',[PcController::class,'getCpuCooler']);
 Route::get('/ram/{id}',action: [PcController::class,'getRam']);
 Route::get('/storage/{id}',[PcController::class,'getStorage']);
 Route::get('/gpu/{id}',[PcController::class,'getGpu']);
+Route::get('/psu/{id}',[PcController::class,'getPsu']);
+Route::get('/pc-case/{id}',[PcController::class,'getPcCase']);
 Route::get('/motherboard/{id}',[PcController::class,'getMotherboard']);
 Route::get('/ram/{id}',[PcController::class,'getRam']);
 Route::post('/login',[AuthController::class,'login']);

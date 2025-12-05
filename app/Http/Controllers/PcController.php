@@ -69,6 +69,11 @@ class PcController extends Controller
         $psu = Psu::findOrFail($id);
         return response()->json($psu, 200);
     }
+    public function getPcCase($id)
+    {
+        $pc_case = PcCase::findOrFail($id);
+        return response()->json($pc_case, 200);
+    }
      public function getGpu($id)
     {
         $gpu = Gpu::findOrFail($id);
