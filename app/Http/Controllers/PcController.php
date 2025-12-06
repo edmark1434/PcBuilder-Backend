@@ -13,6 +13,10 @@ use App\Models\Storage;
 use Illuminate\Http\Request;
 use App\Models\Category;
 use App\Http\Services\AiService;
+use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Cache;
+
+
 class PcController extends Controller
 {
     /**
@@ -78,5 +82,37 @@ class PcController extends Controller
     {
         $gpu = Gpu::findOrFail($id);
         return response()->json($gpu, 200);
+    }
+    public function sendForgetPasswordEmail(Request $request)
+    {
+        $email = $request->input('email');
+        $six_digit_code = rand(100000, 999999);
+
+        Mail::send('emails.reset_code', ['code' => $six_digit_code], function ($message) use ($email) {
+        $message->to($email)
+                ->subject('Your AutoBuild PC Password Reset Code');
+        });
+        Cache::put('password_reset_' . $email, $six_digit_code, now()->addMinutes(5));
+        return response()->json([
+            'message' => 'Password reset email sent',
+        ], 200);
+    }
+
+    public function verifyResetCode(Request $request)
+    {
+        $email = $request->input('email');
+        $code = $request->input('code');
+
+        $cachedCode = Cache::get('password_reset_' . $email);
+
+        if ($cachedCode && $cachedCode == $code) {
+            return response()->json([
+                'message' => 'Code verified successfully',
+            ], 200);
+        } else {
+            return response()->json([
+                'message' => 'Invalid or expired code',
+            ], 400);
+        }
     }
 }
