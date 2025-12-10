@@ -107,11 +107,8 @@ class AiService
             "   • Format: • Point 1\n   • Point 2\n\n" .
             
             "2. FOR COMPATIBILITY QUESTIONS:\n" .
-            "   Compatibility Score: 100% (pre-validated)\n" .
-            "   • PSU Wattage: Sufficient for all components\n" .
-            "   • Case Clearance: All components fit properly\n" .
-            "   • Socket Compatibility: CPU fits motherboard\n" .
-            "   • Note: This build is already validated for full compatibility\n\n" .
+            "   Compatibility Score: 100%\n" .
+            "   Write details here".
             
             "3. FOR PERFORMANCE QUESTIONS:\n" .
             "   Consider the category: For " . strtoupper($category) . " builds, performance expectations are:\n" .
@@ -137,7 +134,7 @@ class AiService
             "   • Step 1: Prepare workspace\n" .
             "   • Step 2: Install components\n" .
             "   • Note: This build is pre-validated for compatibility\n" .
-            "   • Video Tutorials:\n" .
+            "   • Video Tutorials to show this 3 only:\n" .
             "     - [Complete PC Building Guide](https://www.youtube.com/watch?v=IhX0fOUYd8Q)\n" .
             "   • [PC Building for Beginners](https://www.youtube.com/watch?v=v7MYOpFONCU)\n" .
             "   • [Step-by-Step Assembly Tutorial](https://www.youtube.com/watch?v=BL4DCEp7blY)" . "\n\n" .
