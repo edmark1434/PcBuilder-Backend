@@ -9,6 +9,7 @@ use App\Http\Controllers\FavoriteController;
 Route::post('/askAI',[MainController::class,'AiChatbot']);
 Route::get('/build-spec',[MainController::class,'buildSpec']);
 Route::post('/min-price',[MainController::class,'buildWithBudgetRange']);
+Route::post('/build',[MainController::class,'getCategorySpecs']);
 Route::post('/save-build',[MainController::class,'saveBuild']);
 Route::get('/category',[PcController::class,'categoryList']);
 Route::get('/cpu/{id}',[PcController::class,'getCpu']);

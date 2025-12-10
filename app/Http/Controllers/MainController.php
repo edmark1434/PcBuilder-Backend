@@ -12,7 +12,7 @@ use App\Models\Gpu;
 use App\Http\Services\AiService;
 use App\Models\Storage;
 use Illuminate\Http\Request;
-
+use App\Http\Controllers\PcController;
 class MainController extends Controller
 {
     protected static $allParts = [];
@@ -21,128 +21,14 @@ class MainController extends Controller
     // Static minimum specs for categories
     protected function getCategorySpecs($category)
     {
-        $categorySpecs = [
-            'Gaming' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 6, 'boost_clock_min_ghz' => 3.5],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
-                'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'School' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.0],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 8, 'min_speed' => 4800],
-                'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 4],
-                'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
-                'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Office Work' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.0],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 8, 'min_speed' => 4800],
-                'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 2],
-                'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
-                'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Video Editing' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
-                'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Programming' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 4, 'boost_clock_min_ghz' => 3.2],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 2],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 4800],
-                'gpu' => ['max_length_mm' => 250, 'recommended_vram_gb' => 4],
-                'gpu_required' => false,
-                'storage' => ['is_nvme' => false, 'capacity_min_gb' => 500,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 140],
-                'psu' => ['wattage_min' => 500],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            '3D Modeling' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 12, 'boost_clock_min_ghz' => 3.8],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 64, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 12],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 170],
-                'psu' => ['wattage_min' => 850],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Photo Editing' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 6, 'boost_clock_min_ghz' => 3.5],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 280, 'recommended_vram_gb' => 6],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 150],
-                'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Graphic Design' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 6, 'boost_clock_min_ghz' => 3.5],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 16, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 280, 'recommended_vram_gb' => 6],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 1000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 150],
-                'psu' => ['wattage_min' => 650],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Streaming' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
-                'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-
-            'Content Creation' => [
-                'cpu' => ['socket' => 'AM5', 'core_count_min' => 8, 'boost_clock_min_ghz' => 3.7],
-                'motherboard' => ['socket_cpu' => 'AM5', 'form_factor' => 'ATX', 'memory_type' => 'DDR5', 'memory_slots' => 4],
-                'ram' => ['type' => 'DDR5', 'capacity_min_gb' => 32, 'min_speed' => 5200],
-                'gpu' => ['max_length_mm' => 320, 'recommended_vram_gb' => 8],
-                'gpu_required' => true,
-                'storage' => ['is_nvme' => true, 'capacity_min_gb' => 2000,'type' => 'SSD'],
-                'cpu_cooler' => ['supported_sockets' => 'AM5', 'max_height_mm' => 160],
-                'psu' => ['wattage_min' => 750],
-                'pc_case' => ['motherboard_form_factor' => 'ATX']
-            ],
-        ];
-
+        $categorySpecs = PcController::$categorySpecs;
+        if(in_array($category, array_keys($categorySpecs)) === false) {
+            $result = AiService::getBuildSpecs($category);
+            $claenResult = preg_replace('/```(json)?|```/', '', $result);
+            $claenResult = trim($claenResult);
+            $decoded = json_decode($claenResult, true);
+            return $decoded;
+        }
         return $categorySpecs[$category] ?? null;
     }
 
@@ -190,8 +76,33 @@ class MainController extends Controller
         }
 
         // CPU Cooler
-        $allCooler = CpuCooler::whereRaw("POSITION(? IN cpu_socket) > 0", [$minimumReq['cpu_cooler']['supported_sockets']])
+        $minRpm = $minimumReq['cpu_cooler']['fan_rpm_min'];
+        $maxRpm = $minimumReq['cpu_cooler']['fan_rpm_max'];
+
+        $allCooler = CpuCooler::whereRaw(
+            "POSITION(? IN cpu_socket) > 0",
+            [$minimumReq['cpu_cooler']['supported_sockets']]
+            )
             ->where('height', '<=', $minimumReq['cpu_cooler']['max_height_mm'])
+            ->whereRaw("
+                (
+                    -- CASE 1: RANGE RPM (e.g. 600 - 1500 RPM)
+                    (
+                        fan_rpm LIKE '%-%' AND
+                        SPLIT_PART(fan_rpm, ' ', 1) ~ '^[0-9]+$' AND
+                        SPLIT_PART(SPLIT_PART(fan_rpm, '-', 2), ' ', 1) ~ '^[0-9]+$' AND
+                        CAST(SPLIT_PART(fan_rpm, ' ', 1) AS INTEGER) <= ? AND
+                        CAST(SPLIT_PART(SPLIT_PART(fan_rpm, '-', 2), ' ', 1) AS INTEGER) >= ?
+                    )
+                    OR
+                    -- CASE 2: SINGLE RPM (e.g. 2000 RPM)
+                    (
+                        fan_rpm NOT LIKE '%-%' AND
+                        SPLIT_PART(fan_rpm, ' ', 1) ~ '^[0-9]+$' AND
+                        CAST(SPLIT_PART(fan_rpm, ' ', 1) AS INTEGER) BETWEEN ? AND ?
+                    )
+                )
+            ", [$maxRpm, $minRpm, $minRpm, $maxRpm])
             ->get();
 
         // Storage
@@ -237,8 +148,7 @@ class MainController extends Controller
     public function buildWithBudgetRange(Request $request)
     {
         $category = $request->input('category');
-        $minBudget = (float) $request->input('min', 1000);
-        $maxBudget = (float) $request->input('max', 10000);
+  
         $targetBuildCount = 20;
 
         $categorySpecs = $this->getCategorySpecs($category);
@@ -258,6 +168,9 @@ class MainController extends Controller
         $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
             return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
         })->sum();
+
+        $minBudget = (float) $request->input('min', $minimumBuild);
+        $maxBudget = (float) $request->input('max', 10000);
 
         if ($maxBudget < $minimumBuild) {
             return response()->json([

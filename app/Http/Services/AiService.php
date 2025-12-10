@@ -3,7 +3,7 @@
 namespace App\Http\Services;
 
 use Illuminate\Support\Facades\Http;
-
+use App\Http\Controllers\PcController;
 class AiService
 {
     /**
@@ -63,7 +63,7 @@ class AiService
                 "You are a professional PC builder and tech expert. Answer questions about this PC build:\n\n" .
                 $buildText .
                 "\nINSTRUCTIONS:\n" .
-                "\nThe build given is already compatible in each others component. Psu is already sustained the given builds.\n" .
+                "\nThe build given is already compatible in each others component. All of the components are already meet the required clearance and capacity in each components.\n" .
                 "1. FOR GUIDELINES/INSTRUCTIONS QUESTIONS:\n" .
                 "   - Provide bulleted step-by-step instructions\n" .
                 "   - Format: • Step 1: ...\n   • Step 2: ...\n" .
@@ -98,7 +98,8 @@ class AiService
                 "- Be specific about components\n" .
                 "- If question is unrelated, respond: 'This question is not related to the PC build.'\n" .
                 "- NEVER use numbered lists, always use bullet points\n" .
-                "- Use markdown-like formatting with * for emphasis if needed"
+                "- Use markdown-like formatting with * for emphasis if needed".
+                "- Always provide video links and pictures if the question is about building guide or tutorial.\n"
         ];
 
         $userMessage = [
@@ -106,6 +107,28 @@ class AiService
             "content" => $question
         ];
 
+        return self::responseChat($systemMessage, $userMessage);
+    }
+    public static function getBuildSpecs($category)
+    {
+        $categorySpecs = PcController::$categorySpecs;
+        $systemMessage = [
+            "role" => "system",
+            "content" =>
+                "You are a knowledgeable PC building assistant. Based on the user's selected category, recommend appropriate PC component specifications from the predefined category specs.\n\n" .
+                "CATEGORIES AND SPECS:\n" .
+                json_encode($categorySpecs, JSON_PRETTY_PRINT) .
+                "\nINSTRUCTIONS:\n" .
+                // "- Based on the user's category, provide the one category under the passed needs return the best category that will fit the need belong, dont include explanation or key just the category.Based the answer on the category specs given on which specs suites the needs.\n" .
+                // "category name : ['Gaming','School','Office Work','Video Editing','Programming','3D Modeling','Photo Editing','Graphic Design','Streaming','Content Creation']\n" 
+                "- Based on the user's category, provide the specifications for each PC component that best fits the selected category. Please same format as the category specs.\n".
+                "- Only one category specification that will fit all of the needed categories.\n".
+                "- Provide the response in JSON format only, without any additional text or explanation.\n"
+        ];
+        $userMessage = [
+            "role" => "user",
+            "content" => "Provide the PC component specifications for the category: " . $category
+        ];
         return self::responseChat($systemMessage, $userMessage);
     }
 }
