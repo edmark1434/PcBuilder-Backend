@@ -308,7 +308,7 @@ class MainController extends Controller
         try {
             $build = $request->input('build');
             $question = $request->input('question');
-
+            $category = $request->input('category');
             // Validate inputs
             if (!$build || !$question) {
                 return response()->json([
@@ -318,7 +318,7 @@ class MainController extends Controller
             }
 
             // Call the llms
-            $result = AiService::askAI($build, $question);
+            $result = AiService::askAI($build, $question,$category);
             
             // check if the response is json
             $jsonStart = strpos($result, '{');
