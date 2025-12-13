@@ -11,304 +11,439 @@ use App\Models\Ram;
 use App\Models\Gpu;
 use App\Http\Services\AiService;
 use App\Models\Storage;
+use App\Models\PcPart;
 use Illuminate\Http\Request;
 use App\Http\Controllers\PcController;
 class MainController extends Controller
 {
-    protected static $allParts = [];
-    protected static $budgetDistribution = [];
-
-    // Static minimum specs for categories
-    protected function getCategorySpecs($category)
-    {
-        $categorySpecs = PcController::$categorySpecs;
-        if(in_array($category, array_keys($categorySpecs)) === false) {
-            $result = AiService::getBuildSpecs($category);
-            $claenResult = preg_replace('/```(json)?|```/', '', $result);
-            $claenResult = trim($claenResult);
-            $decoded = json_decode($claenResult, true);
-            return $decoded;
-        }
-        return $categorySpecs[$category] ?? null;
-    }
-
     protected function convertPrice($priceText)
     {
-        return round((float) str_replace(',', '', preg_replace('/[^0-9.]/', '', $priceText)), 2);
+        // Remove all non-numeric characters except decimal point
+        $cleaned = preg_replace('/[^0-9.]/', '', $priceText);
+        return round((float) $cleaned, 2);
     }
 
-    public function getCompatibleParts($category)
-    {
-        $minimumReq = $this->getCategorySpecs($category);
-        if (!$minimumReq) return [];
-
-        $gpuRequired = $minimumReq['gpu_required'];
-
-        // CPU
-        $allCpu = Cpu::where('socket', $minimumReq['cpu']['socket'])
-            ->where('core_count', '>=', $minimumReq['cpu']['core_count_min'])
-            ->where('boost_clock', '>=', $minimumReq['cpu']['boost_clock_min_ghz'])
-            ->get();
-
-        // Motherboard
-        $allMotherboard = Motherboard::where('socket_cpu', $minimumReq['motherboard']['socket_cpu'])
-            ->where('form_factor', $minimumReq['motherboard']['form_factor'])
-            ->where('memory_type', $minimumReq['motherboard']['memory_type'])
-            ->where('memory_slots', '>=', $minimumReq['motherboard']['memory_slots'])
-            ->get();
-
-        // RAM
-        $allRam = Ram::where('form_factor', 'ILIKE', '%' . $minimumReq['ram']['type'] . '%')
-            ->whereRaw("
-                (CAST(SPLIT_PART(modules, ' x ', 1) AS INTEGER) *
-                CAST(REGEXP_REPLACE(SPLIT_PART(modules, ' x ', 2), 'GB', '', 'g') AS INTEGER)
-                ) >= ?
-            ", [$minimumReq['ram']['capacity_min_gb']])
-            ->whereRaw("CAST(SPLIT_PART(speed, '-', 2) AS INTEGER) >= ?", [$minimumReq['ram']['min_speed']])
-            ->get();
-
-        // GPU (only if required)
-        $allGpu = collect();
-        if ($gpuRequired) {
-            $allGpu = Gpu::where('memory', '>=', $minimumReq['gpu']['recommended_vram_gb'])
-                ->where('length', '<=', $minimumReq['gpu']['max_length_mm'])
-                ->get();
-        }
-
-        // CPU Cooler
-        $minRpm = $minimumReq['cpu_cooler']['fan_rpm_min'];
-        $maxRpm = $minimumReq['cpu_cooler']['fan_rpm_max'];
-
-        $allCooler = CpuCooler::whereRaw(
-            "POSITION(? IN cpu_socket) > 0",
-            [$minimumReq['cpu_cooler']['supported_sockets']]
-            )
-            ->where('height', '<=', $minimumReq['cpu_cooler']['max_height_mm'])
-            ->whereRaw("
-                (
-                    -- CASE 1: RANGE RPM (e.g. 600 - 1500 RPM)
-                    (
-                        fan_rpm LIKE '%-%' AND
-                        SPLIT_PART(fan_rpm, ' ', 1) ~ '^[0-9]+$' AND
-                        SPLIT_PART(SPLIT_PART(fan_rpm, '-', 2), ' ', 1) ~ '^[0-9]+$' AND
-                        CAST(SPLIT_PART(fan_rpm, ' ', 1) AS INTEGER) <= ? AND
-                        CAST(SPLIT_PART(SPLIT_PART(fan_rpm, '-', 2), ' ', 1) AS INTEGER) >= ?
-                    )
-                    OR
-                    -- CASE 2: SINGLE RPM (e.g. 2000 RPM)
-                    (
-                        fan_rpm NOT LIKE '%-%' AND
-                        SPLIT_PART(fan_rpm, ' ', 1) ~ '^[0-9]+$' AND
-                        CAST(SPLIT_PART(fan_rpm, ' ', 1) AS INTEGER) BETWEEN ? AND ?
-                    )
-                )
-            ", [$maxRpm, $minRpm, $minRpm, $maxRpm])
-            ->get();
-
-        // Storage
-        $allStorage = Storage::whereRaw("CAST(capacity_gb AS INTEGER) >= ?", [$minimumReq['storage']['capacity_min_gb']])
-            ->where('is_nvme', $minimumReq['storage']['is_nvme'])
-            ->where('type', $minimumReq['storage']['type'])
-            ->get();
-
-        // PSU
-        $allPsu = Psu::where('wattage', '>=', $minimumReq['psu']['wattage_min'])->get();
-
-        // PC Case (skip GPU length if GPU is optional)
-        $pcCaseQuery = PcCase::whereRaw(
-            "POSITION(? IN LOWER(motherboard_form_factor)) > 0",
-            [strtolower($minimumReq['pc_case']['motherboard_form_factor'])]
-        );
-
-        if ($gpuRequired) {
-            $pcCaseQuery->where('maximum_video_card_length_mm', '>=', $minimumReq['gpu']['max_length_mm']);
-        }
-
-        $allCase = $pcCaseQuery->get();
-
-        // Final parts list
-        self::$allParts = [
-            'cpu' => $allCpu,
-            'motherboard' => $allMotherboard,
-            'ram' => $allRam,
-            'cpu_cooler' => $allCooler,
-            'storage' => $allStorage,
-            'psu' => $allPsu,
-            'pc_case' => $allCase,
-        ];
-
-        if ($gpuRequired) {
-            self::$allParts['gpu'] = $allGpu;
-        }
-
-        return self::$allParts;
-    }
-
-
+    
     public function buildWithBudgetRange(Request $request)
     {
-        $category = $request->input('category');
-  
-        $targetBuildCount = 20;
+        $text = $request->input('text', '');
+        $description = $request->input('description');
 
-        $categorySpecs = $this->getCategorySpecs($category);
-        $gpuRequired = $categorySpecs['gpu_required'] ?? true;
-
-        // Get all parts
-        $allParts = $this->getCompatibleParts($category);
-
-        // Remove GPU from allParts if category does not require it
-        if (!$gpuRequired) {
-            unset($allParts['gpu']);
+        if (empty($text)) {
+            $text = $description;
         }
 
-        $convert = fn($p) => $this->convertPrice($p->price);
-
-        // Minimum possible build
-        $minimumBuild = collect($allParts)->map(function ($parts) use ($convert) {
-            return $parts->isEmpty() ? 0 : $convert($parts->sortBy(fn($p) => $convert($p))->first());
-        })->sum();
-
-        $minBudget = (float) $request->input('min', $minimumBuild);
-        $maxBudget = (float) $request->input('max', 10000);
-
-        if ($maxBudget < $minimumBuild) {
+        if (!$description) {
             return response()->json([
-                'error' => 'Your budget is less than the minimum build.',
-                'minimum_possible_build' => round($minimumBuild, 2)
+                'error' => 'Missing required parameter: description',
             ], 400);
         }
 
-        if ($minBudget < $minimumBuild) {
-            $minBudget = $minimumBuild;
-        }
+        $minBudget = (float) $request->input('min', 0);
+        $maxBudget = (float) $request->input('max', 0);
+        $detailedNeeds = $request->input('detailed_needs', '');
 
-        // If budget is too close: return minimum build
-        if (($maxBudget - $minimumBuild) <= 20) {
-            return response()->json([
-                'total_builds' => 1,
-                'builds' => [$this->formatMinimumBuild($allParts, $convert)],
-                'minimum_possible_build' => round($minimumBuild, 2),
-                'sorted_by' => 'minimum_build_short_range'
+        try {
+            $components = $this->loadAndGroupComponents();
+            $componentsSummary = $this->createComponentsSummary($components);
+
+            $aiResponse = AiService::generateBuildRecommendation(
+                $text,
+                $description,
+                $detailedNeeds,
+                $minBudget,
+                $maxBudget,
+                $componentsSummary
+            );
+
+            // If AI returns an array already, use it
+            if (is_array($aiResponse)) {
+                $decoded = $aiResponse;
+            } else {
+                // Remove Markdown/code blocks
+                $aiResponseClean = preg_replace('/```(json)?|```/', '', $aiResponse);
+                $aiResponseClean = trim($aiResponseClean);
+
+                // Attempt to decode JSON safely
+                $decoded = json_decode($aiResponseClean, true);
+
+                // Fallback: try to extract JSON object from text if partial
+                if (json_last_error() !== JSON_ERROR_NONE) {
+                    preg_match('/\{.*\}/s', $aiResponseClean, $matches);
+                    if (!empty($matches)) {
+                        $decoded = json_decode($matches[0], true);
+                    }
+                }
+            }
+
+            // Ensure we always return an array of builds
+            if (!isset($decoded['builds']) || !is_array($decoded['builds'])) {
+                $decoded['builds'] = $this->buildFromRecommendation($components, is_array($aiResponse) ? json_encode($aiResponse) : $aiResponse);
+            }
+
+
+            $response = [
+                'success' => true,
+                'data' => [
+                    'builds' => $decoded['builds']
+                ]
+            ];
+
+            if ($maxBudget > 0) {
+                $response['data']['budget_range'] = [
+                    'min' => $minBudget,
+                    'max' => $maxBudget
+                ];
+            }
+
+            return response()->json($response);
+
+        } catch (\Exception $e) {
+            \Log::error('buildWithBudgetRange Error: ' . $e->getMessage(), [
+                'exception' => $e,
+                'request' => $request->all()
             ]);
+
+            return response()->json([
+                'success' => false,
+                'error' => 'Failed to generate build recommendation',
+                'message' => env('APP_DEBUG') ? $e->getMessage() : null
+            ], 500);
+        }
+    }
+
+    private function loadAndGroupComponents()
+    {
+        $components = [
+            'Processors' => [],
+            'Motherboards' => [],
+            'Memory' => [],
+            'Storage' => [],
+            'Graphics Cards' => [],
+            'Power Supply' => [],
+            'Cases' => [],
+            'Cooling' => []
+        ];
+
+        // Query database using Laravel ORM
+        $parts = PcPart::all();
+
+        foreach ($parts as $part) {
+            if (isset($components[$part->type])) {
+                $components[$part->type][] = [
+                    'ID' => $part->external_id,
+                    'Type' => $part->type,
+                    'Vendor' => $part->vendor,
+                    'Title' => $part->title,
+                    'Price' => $part->price,
+                    'Image' => $part->image,
+                    'Link' => $part->link
+                ];
+            }
         }
 
-        // Generate builds
+        return $components;
+    }
+
+    private function createComponentsSummary($components)
+    {
+        $summary = "Available Components (ID | Vendor | Title | Price):\n\n";
+
+        foreach ($components as $type => $items) {
+            $summary .= strtoupper($type) . " (" . count($items) . " options):\n";
+
+            foreach ($items as $item) {
+                $summary .= "{$item['ID']} | {$item['Type']} | {$item['Vendor']} | {$item['Title']} |  {$item['Price']} | {$item['Image']}   | {$item['Link']}\n";
+            }
+            $summary .= "\n";
+        }
+
+        return $summary;
+    }
+
+    private function generateSampleBuilds($components, $minBudget, $maxBudget, $recommendation)
+    {
         $builds = [];
-        $tiers = ['min', 'mid', 'max'];
-        $attemptLimit = 1500;
-        $attempts = 0;
+        
+        // Parse recommendation to extract component names and prices
+        $recommendedComponents = $this->parseRecommendationComponents($recommendation, $components);
 
-        while (count($builds) < $targetBuildCount && $attempts < $attemptLimit) {
-            $attempts++;
+        $parts = [];
+        $totalPrice = 0;
 
-            $build = [];
-            $total = 0;
-            $tier = $tiers[array_rand($tiers)];
+        // Build parts array from parsed recommendations or use fallback
+        foreach ($components as $type => $items) {
+            if (!empty($items)) {
+                // Check if we have a recommended component for this type
+                $selectedItem = null;
+                
+                if (isset($recommendedComponents[$type])) {
+                    // Try to find the recommended component in the list
+                    $recommendedName = $recommendedComponents[$type]['name'];
+                    foreach ($items as $item) {
+                        if (stripos($item['Title'], $recommendedName) !== false) {
+                            $selectedItem = $item;
+                            break;
+                        }
+                    }
+                }
+                
+                // Fallback to first item if not found
+                if (!$selectedItem) {
+                    $selectedItem = $items[0];
+                }
+                
+                $price = is_numeric($selectedItem['Price']) ? (float)$selectedItem['Price'] : $this->convertPrice($selectedItem['Price']);
+                
+                $parts[] = [
+                    'id' => (int)$selectedItem['ID'],
+                    'partType' => $type,
+                    'name' => $selectedItem['Title'],
+                    'vendor' => $selectedItem['Vendor'],
+                    'price' => $price,
+                    'image' => $selectedItem['Image'] ?? '',
+                    'product' => $selectedItem['Link'] ?? '',
+                    'type' => $type,
+                    'external_id' => $selectedItem['ID']
+                ];
+                
+                $totalPrice += $price;
+            }
+        }
 
-            foreach ($allParts as $cat => $parts) {
-                if ($parts->isEmpty()) continue;
+        // Create the build
+        $build = [
+            'parts' => $parts,
+            'total_price' => $totalPrice,
+            'description' => $recommendation
+        ];
 
-                $sorted = $parts->sortBy(fn($p) => $convert($p))->values();
-                $count = $sorted->count();
+        $builds[] = $build;
 
-                if ($count === 0) continue;
+        return $builds;
+    }
 
-                if ($tier === 'min') {
-                    $index = rand(0, max(0, (int) floor($count * 0.3) - 1));
-                } elseif ($tier === 'max') {
-                    $index = rand((int) floor($count * 0.7), $count - 1);
-                } else {
-                    $index = rand((int) floor($count * 0.3), (int) floor($count * 0.7));
+    private function buildFromRecommendation($components, $recommendation)
+    {
+        $parts = [];
+        $totalPrice = 0.0;
+
+        // Regex 1: capture lines with explicit IDs
+        // Example: • CPU + GPU: **AMD Ryzen 3 3200G** (ID 31) – ₱3,700
+        $patternWithId = '/^\s*(?:•|\-|\*)\s*(?:[^:]+:)?\s*\*\*(.*?)\*\*\s*\(ID\s*(\d+)\)\s*[—\-:]+\s*₱?([\d,\.]+)/mi';
+        if (preg_match_all($patternWithId, $recommendation, $matches, PREG_SET_ORDER)) {
+            foreach ($matches as $m) {
+                $name = trim($m[1]);
+                $extId = trim($m[2]);
+                $priceText = trim($m[3]);
+                $price = $this->convertPrice($priceText);
+
+                $matchedItem = null;
+                $matchedType = null;
+
+                // Find in components by external_id first
+                foreach ($components as $type => $items) {
+                    foreach ($items as $item) {
+                        if ((string)$item['ID'] === (string)$extId) {
+                            $matchedItem = $item;
+                            $matchedType = $type;
+                            break 2;
+                        }
+                    }
                 }
 
-                $selected = $sorted[$index];
-                $build[$cat] = $selected;
-                $total += $convert($selected);
-            }
+                // Fallback: fuzzy match by title if ID not found
+                if (!$matchedItem) {
+                    foreach ($components as $type => $items) {
+                        foreach ($items as $item) {
+                            if (stripos($item['Title'], $name) !== false) {
+                                $matchedItem = $item;
+                                $matchedType = $type;
+                                break 2;
+                            }
+                        }
+                    }
+                }
 
-            if ($total >= $minBudget && $total <= $maxBudget) {
-                $builds[] = [
-                    'parts' => collect($build)->map(function ($p, $cat) use ($convert) {
-                        return [
-                            'id' => $p->id,
-                            'partType' => ucwords(str_replace('_', ' ', $cat)),
-                            'name' => $p->name,
-                            'price' => $convert($p),
-                            'image' => $p->image_url ?? '',
-                            'product' => $p->product_url ??
- ''
-                        ];
-                    })->values(),
-                    'total_price' => round($total, 2)
+                // If still not found, create a minimal entry from text
+                if (!$matchedItem) {
+                    $parts[] = [
+                        'ID' => (int)$extId,
+                        'Type' => 'Unknown',
+                        'Title' => $name,
+                        'Vendor' => '',
+                        'Price' => $price,
+                        'Image' => '',
+                        'Link' => '',
+                        'external_id' => $extId,
+                    ];
+                    $totalPrice += $price;
+                    continue;
+                }
+
+                // Use matched DB item details, override price with recommendation when provided
+                $finalPrice = is_numeric($matchedItem['Price']) ? (float)$matchedItem['Price'] : $this->convertPrice($matchedItem['Price']);
+                if ($price > 0) {
+                    $finalPrice = $price;
+                }
+
+                $parts[] = [
+                    'ID' => (int)$matchedItem['ID'],
+                    'Type' => $matchedType,
+                    'Title' => $matchedItem['Title'],
+                    'Vendor' => $matchedItem['Vendor'],
+                    'Price' => $finalPrice,
+                    'Image' => $matchedItem['Image'] ?? '',
+                    'Link' => $matchedItem['Link'] ?? '',
+                    'external_id' => $matchedItem['ID'],
                 ];
+                $totalPrice += $finalPrice;
             }
         }
 
-        // Fallback: minimum build
-        if (empty($builds)) {
-            return response()->json([
-                'total_builds' => 1,
-                'builds' => [$this->formatMinimumBuild($allParts, $convert)],
-                'minimum_possible_build' => round($minimumBuild, 2),
-                'sorted_by' => 'fallback_minimum'
-            ]);
-        }
+        // Regex 2: capture lines without IDs
+        // Example: - **AMD Ryzen 5 4600G** — ₱6,150
+        $patternNoId = '/^\s*(?:•|\-|\*)\s*(?:[^:]+:)?\s*\*\*(.*?)\*\*\s*[—\-:]+\s*₱?([\d,\.]+)/mi';
+        if (preg_match_all($patternNoId, $recommendation, $matches2, PREG_SET_ORDER)) {
+            foreach ($matches2 as $m2) {
+                $name = trim($m2[1]);
+                $priceText = trim($m2[2]);
+                $price = $this->convertPrice($priceText);
 
-        // Add minimum build at first index
-        array_unshift($builds, $this->formatMinimumBuild($allParts, $convert));
+                // Skip if already added by ID (check Title key, not name)
+                $alreadyAdded = false;
+                foreach ($parts as $p) {
+                    if (stripos($p['Title'], $name) !== false) {
+                        $alreadyAdded = true;
+                        break;
+                    }
+                }
+                if ($alreadyAdded) {
+                    continue;
+                }
 
-        // Sort ascending by total price
-        usort($builds, fn($a, $b) => $a['total_price'] <=> $b['total_price']);
+                $matchedItem = null;
+                $matchedType = null;
 
-        // Remove duplicates
-        $builds = array_unique($builds, SORT_REGULAR);
+                // Fuzzy match across all components by title
+                foreach ($components as $type => $items) {
+                    foreach ($items as $item) {
+                        if (stripos($item['Title'], $name) !== false) {
+                            $matchedItem = $item;
+                            $matchedType = $type;
+                            break 2;
+                        }
+                    }
+                }
 
-        // 20 builds limit
-        $builds = array_slice($builds, 0, 20);
-
-        return response()->json([
-            'total_builds' => count($builds),
-            'builds' => $builds,
-            'minimum_possible_build' => round($minimumBuild, 2),
-            'sorted_by' => 'fast_generation_with_minimum_first'
-        ]);
-    }
-
-    private function formatMinimumBuild($allParts, $convert)
-    {
-        $minCombo = [];
-
-        foreach ($allParts as $cat => $parts) {
-            if (!$parts->isEmpty()) {
-                $minCombo[$cat] = $parts->sortBy(fn($p) => $convert($p))->first();
+                if ($matchedItem) {
+                    $finalPrice = is_numeric($matchedItem['Price']) ? (float)$matchedItem['Price'] : $this->convertPrice($matchedItem['Price']);
+                    if ($price > 0) {
+                        $finalPrice = $price;
+                    }
+                    $parts[] = [
+                        'ID' => (int)$matchedItem['ID'],
+                        'Type' => $matchedType,
+                        'Title' => $matchedItem['Title'],
+                        'Vendor' => $matchedItem['Vendor'],
+                        'Price' => $finalPrice,
+                        'Image' => $matchedItem['Image'] ?? '',
+                        'Link' => $matchedItem['Link'] ?? '',
+                        'external_id' => $matchedItem['ID'],
+                    ];
+                    $totalPrice += $finalPrice;
+                } else {
+                    // Minimal entry if no DB match
+                    $parts[] = [
+                        'ID' => 0,
+                        'Type' => 'Unknown',
+                        'Title' => $name,
+                        'Vendor' => '',
+                        'Price' => $price,
+                        'Image' => '',
+                        'Link' => '',
+                        'external_id' => '',
+                    ];
+                    $totalPrice += $price;
+                }
             }
         }
 
-        $total = array_reduce($minCombo, fn($sum, $p) => $sum + $convert($p), 0);
-
-        return [
-            'parts' => collect($minCombo)->map(function ($p, $cat) use ($convert) {
-                return [
-                    'id' => $p->id,
-                    'partType' => ucwords(str_replace('_', ' ', $cat)),
-                    'name' => $p->name,
-                    'price' => $convert($p),
-                    'image' => $p->image_url ?? '',
-                    'product' => $p->product_url ?? ''
-                ];
-            })->values(),
-            'total_price' => round($total, 2)
+        // Assemble single build
+        $build = [
+            'parts' => $parts,
+            'total_price' => $totalPrice,
+            'description' => $recommendation,
         ];
+
+        return [$build];
     }
 
+    private function parseRecommendationComponents($recommendation, $components)
+    {
+        $recommended = [];
+        
+        // Extract lines that contain component recommendations (pattern: "Component Name — ₱Price")
+        // Also handle pattern: "Component Name — Price"
+        if (preg_match_all('/^([^—\n]+)\s*(?:—|-|:)\s*₱?[\d,\.]+\s*$/m', $recommendation, $matches)) {
+            foreach ($matches[1] as $componentName) {
+                $componentName = trim($componentName);
+                
+                // Skip non-component lines
+                if (strlen($componentName) < 3 || preg_match('/^(TOTAL|Optional|Just|If|Add|Note|Let)/i', $componentName)) {
+                    continue;
+                }
+                
+                // Try to match with component types
+                $matchedType = $this->matchComponentType($componentName, $components);
+                
+                if ($matchedType) {
+                    $recommended[$matchedType] = ['name' => $componentName];
+                }
+            }
+        }
+        
+        return $recommended;
+    }
+
+    private function matchComponentType($componentName, $components)
+    {
+        $componentName = strtolower($componentName);
+        
+        // Define keywords for each component type
+        $typeKeywords = [
+            'Processors' => ['ryzen', 'core', 'intel', 'amd', 'cpu', 'processor', 'xeon'],
+            'Motherboards' => ['prime', 'asus', 'msi', 'gigabyte', 'asrock', 'board', 'motherboard', 'z790', 'b760', 'a520', 'x570'],
+            'Memory' => ['ddr', 'ram', 'memory', 'adata', 'corsair', 'kingston', 'crucial', 'gskill', 'storm'],
+            'Storage' => ['ssd', 'nvme', 'storage', '250gb', '500gb', '1tb', '2tb', 'wd', 'samsung', 'crucial', 'kingston', 'seagate'],
+            'Graphics Cards' => ['gtx', 'rtx', 'geforce', 'radeon', 'gpu', 'vega', 'igpu', 'graphics', 'msi', 'asus', 'gigabyte'],
+            'Power Supply' => ['psu', 'power', 'supply', 'watts', 'w ', '500w', '650w', '750w', 'bronze', 'gold', 'platinum'],
+            'Cases' => ['case', 'chassis', 'tower', 'atx', 'mini', 'antec', 'corsair', 'nzxt', 'trendsonic', 'cooler master'],
+            'Cooling' => ['cooler', 'cooling', 'fan', 'tower', 'liquid', 'air']
+        ];
+        
+        // Check which type matches best
+        foreach ($typeKeywords as $type => $keywords) {
+            foreach ($keywords as $keyword) {
+                if (stripos($componentName, $keyword) !== false) {
+                    return $type;
+                }
+            }
+        }
+        
+        return null;
+    }
+
+    
+
+    
     // AI Chatbot Proxy
     public function AiChatbot(Request $request)
     {
         try {
             $build = $request->input('build');
             $question = $request->input('question');
-            $category = $request->input('category');
+            $needs = $request->input('needs', '');
             // Validate inputs
             if (!$build || !$question) {
                 return response()->json([
@@ -318,7 +453,7 @@ class MainController extends Controller
             }
 
             // Call the llms
-            $result = AiService::askAI($build, $question,$category);
+            $result = AiService::askAI($build, $question, $needs);
             
             // check if the response is json
             $jsonStart = strpos($result, '{');
